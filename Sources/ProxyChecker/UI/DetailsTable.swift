@@ -55,35 +55,18 @@ struct DetailsTable: View {
 
     @ViewBuilder
     private func headerCell(_ column: ColumnID) -> some View {
-        let sort = column.sortColumn
-        let isActive = sort != nil && model.sortColumn == sort
-
-        Button {
-            if let sort { model.toggleSort(sort) }
-        } label: {
-            HStack(spacing: 4) {
-                Text(column.title)
-                    .font(.system(size: 11, weight: .semibold))
-                    .tracking(0.6)
-                    .foregroundStyle(isActive ? Theme.textPrimary : Theme.textSecondary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-
-                if sort != nil {
-                    Image(systemName: isActive
-                          ? (model.sortAscending ? "chevron.up" : "chevron.down")
-                          : "chevron.up.chevron.down")
-                        .font(.system(size: 8, weight: .bold))
-                        .foregroundStyle(isActive ? Theme.textSecondary : Theme.textFaint)
+        Group {
+            if let sort = column.sortColumn {
+                Button {
+                    model.toggleSort(sort)
+                } label: {
+                    headerLabel(column, isActive: model.sortColumn == sort)
                 }
-                Spacer(minLength: 0)
+                .buttonStyle(.plain)
+            } else {
+                headerLabel(column, isActive: false)
             }
-            .padding(.horizontal, 12)
-            .frame(width: layout.width(column), height: 42, alignment: .leading)
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .disabled(sort == nil)
         .overlay(alignment: .trailing) {
             Rectangle()
                 .fill(Theme.hairlineStrong)
@@ -92,6 +75,29 @@ struct DetailsTable: View {
         .overlay(alignment: .trailing) {
             ResizeHandle(column: column)
         }
+    }
+
+    private func headerLabel(_ column: ColumnID, isActive: Bool) -> some View {
+        HStack(spacing: 4) {
+            Text(column.title)
+                .font(.system(size: 11, weight: .semibold))
+                .tracking(0.6)
+                .foregroundStyle(Theme.textPrimary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+
+            if column.sortColumn != nil {
+                Image(systemName: isActive
+                      ? (model.sortAscending ? "chevron.up" : "chevron.down")
+                      : "chevron.up.chevron.down")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundStyle(isActive ? Theme.textSecondary : Theme.textFaint)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12)
+        .frame(width: layout.width(column), height: 42, alignment: .leading)
+        .contentShape(Rectangle())
     }
 
     private var emptyState: some View {
@@ -260,12 +266,12 @@ private struct DetailRow: View {
         case .type:
             Text(row.resolvedType.label)
                 .font(.mono(11.5, .medium))
-                .foregroundStyle(row.resolvedType == .unknown ? Theme.textFaint : Theme.textSecondary)
+                .foregroundStyle(row.resolvedType == .unknown ? Theme.textFaint : Theme.textPrimary)
 
         case .security:
             Text(row.anonymity.label)
                 .font(.system(size: 12))
-                .foregroundStyle(row.anonymity == .unknown ? Theme.textFaint : Theme.textSecondary)
+                .foregroundStyle(row.anonymity == .unknown ? Theme.textFaint : Theme.textPrimary)
 
         case .speed:
             speedContent
