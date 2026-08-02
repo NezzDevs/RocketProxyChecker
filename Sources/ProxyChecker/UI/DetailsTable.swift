@@ -252,6 +252,11 @@ private struct DetailRow: View {
             Text(row.isp ?? "—")
                 .foregroundStyle(row.isp == nil ? Theme.textFaint : Theme.textPrimary)
 
+        case .network:
+            Text(row.network.label)
+                .font(.system(size: 12))
+                .foregroundStyle(row.network == .unknown ? Theme.textFaint : Theme.textPrimary)
+
         case .type:
             Text(row.resolvedType.label)
                 .font(.mono(11.5, .medium))
