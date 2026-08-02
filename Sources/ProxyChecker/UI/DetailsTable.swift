@@ -253,7 +253,7 @@ private struct DetailRow: View {
                 .foregroundStyle(row.isp == nil ? Theme.textFaint : Theme.textPrimary)
 
         case .type:
-            Text(typeText)
+            Text(row.resolvedType.label)
                 .font(.mono(11.5, .medium))
                 .foregroundStyle(row.resolvedType == .unknown ? Theme.textFaint : Theme.textSecondary)
 
@@ -265,12 +265,6 @@ private struct DetailRow: View {
         case .speed:
             speedContent
         }
-    }
-
-    private var typeText: String {
-        row.supportedTypes.count > 1
-            ? ProxyType.label(for: row.supportedTypes)
-            : row.resolvedType.label
     }
 
     @ViewBuilder
