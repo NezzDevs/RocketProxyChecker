@@ -1,12 +1,10 @@
 #!/bin/bash
-# Packages "Proxy Checker.app" into a drag-to-install disk image.
-# Usage:  ./make-dmg.sh    → ProxyChecker.dmg
 
 set -euo pipefail
 
-APP_NAME="Proxy Checker"
-VOLUME="Proxy Checker"
-DMG_NAME="ProxyChecker"
+APP_NAME="Rocket Proxy Checker"
+VOLUME="Rocket Proxy Checker"
+DMG_NAME="RocketProxyChecker"
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 APP="$ROOT/$APP_NAME.app"
 DMG="$ROOT/$DMG_NAME.dmg"
@@ -21,11 +19,8 @@ STAGING="$(mktemp -d)/$VOLUME"
 mkdir -p "$STAGING"
 cp -R "$APP" "$STAGING/"
 
-# The symlink is what makes this a drag-to-install image.
 ln -s /Applications "$STAGING/Applications"
 
-# Give the mounted volume the app's own icon. Needs the custom-icon bit set,
-# which is what SetFile -a C does; skip silently if the tool isn't present.
 if [ -f "$ROOT/Resources/AppIcon.icns" ]; then
     cp "$ROOT/Resources/AppIcon.icns" "$STAGING/.VolumeIcon.icns"
     if command -v SetFile >/dev/null 2>&1; then
