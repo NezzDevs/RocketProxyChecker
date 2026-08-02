@@ -22,7 +22,9 @@ enum Exporter {
 
         var buckets: [String: [ProxyRow]] = [:]
         for row in matching {
-            buckets[bucketKey(for: row, grouping: grouping), default: []].append(row)
+            for key in bucketKeys(for: row, grouping: grouping) {
+                buckets[key, default: []].append(row)
+            }
         }
 
         var written = 0
@@ -50,7 +52,7 @@ enum Exporter {
     }
 
     private static let csvHeader =
-        "host,port,username,password,type,status,http_code,speed_ms,exit_ip,country,country_code,state,isp,security"
+        "host,port,username,password,type,protocols,status,http_code,speed_ms,exit_ip,country,country_code,state,isp,security"
 
     private static func renderCSV(rows: [ProxyRow]) -> String {
         var lines: [String] = [csvHeader]
@@ -59,12 +61,13 @@ enum Exporter {
         for row in rows {
 
             var fields: [String] = []
-            fields.reserveCapacity(14)
+            fields.reserveCapacity(15)
             fields.append(row.host)
             fields.append(String(row.port))
             fields.append(row.username ?? "")
             fields.append(row.password ?? "")
             fields.append(row.resolvedType.label)
+            fields.append(exportProtocols(row).map(\.label).joined(separator: "|"))
             fields.append(row.status.label)
             if let code = row.statusCode {
                 fields.append(String(code))
@@ -98,6 +101,7 @@ enum Exporter {
             dict["host"] = row.host
             dict["port"] = row.port
             dict["type"] = row.resolvedType.rawValue
+            dict["protocols"] = exportProtocols(row).map(\.rawValue)
             dict["status"] = row.status.rawValue
             dict["security"] = row.anonymity.rawValue
 
@@ -123,14 +127,21 @@ enum Exporter {
         return String(decoding: data, as: UTF8.self) + "\n"
     }
 
-    private static func bucketKey(for row: ProxyRow, grouping: ExportGrouping) -> String {
+    static func exportProtocols(_ row: ProxyRow) -> [ProxyType] {
+        let set = row.supportedTypes.isEmpty ? [row.resolvedType] : row.supportedTypes
+        return ProxyType.detectionOrder.filter { set.contains($0) }
+    }
+
+    private static func bucketKeys(for row: ProxyRow, grouping: ExportGrouping) -> [String] {
         switch grouping {
-        case .single: return ""
-        case .byType: return row.resolvedType.label
-        case .byCountry: return row.country ?? "Unknown"
-        case .byState: return row.state ?? "Unknown"
-        case .byAnonymity: return row.anonymity.label
-        case .bySpeed: return SpeedBand.band(for: row.speedMs).rawValue
+        case .single: return [""]
+        case .byType:
+            let protocols = exportProtocols(row)
+            return protocols.isEmpty ? [row.resolvedType.label] : protocols.map(\.label)
+        case .byCountry: return [row.country ?? "Unknown"]
+        case .byState: return [row.state ?? "Unknown"]
+        case .byAnonymity: return [row.anonymity.label]
+        case .bySpeed: return [SpeedBand.band(for: row.speedMs).rawValue]
         }
     }
 
