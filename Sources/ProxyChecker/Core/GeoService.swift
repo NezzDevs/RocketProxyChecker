@@ -5,10 +5,21 @@ struct GeoInfo: Codable, Sendable, Hashable {
     var countryCode: String?
     var regionName: String?
     var isp: String?
+    var hosting: Bool?
+    var mobile: Bool?
+    var proxy: Bool?
     var storedAt: Date = Date()
 
     var isEmpty: Bool {
-        country == nil && countryCode == nil && regionName == nil && isp == nil
+        country == nil && countryCode == nil && regionName == nil
+            && isp == nil && hosting == nil && mobile == nil
+    }
+
+    var network: NetworkType {
+        if hosting == true { return .datacenter }
+        if mobile == true { return .mobile }
+        if hosting == false { return .residential }
+        return .unknown
     }
 }
 
@@ -19,6 +30,9 @@ private struct BatchEntry: Decodable {
     var countryCode: String?
     var regionName: String?
     var isp: String?
+    var hosting: Bool?
+    var mobile: Bool?
+    var proxy: Bool?
     var query: String?
 }
 
@@ -27,7 +41,7 @@ actor GeoService {
     static let shared = GeoService()
 
     private static let endpoint =
-        "http://ip-api.com/batch?fields=status,message,country,countryCode,regionName,isp,query"
+        "http://ip-api.com/batch?fields=status,message,country,countryCode,regionName,isp,hosting,mobile,proxy,query"
     private static let batchSize = 100
     private static let cacheLifetime: TimeInterval = 30 * 24 * 60 * 60
 
@@ -171,7 +185,10 @@ actor GeoService {
                 let info = GeoInfo(country: entry.country,
                                    countryCode: entry.countryCode,
                                    regionName: entry.regionName,
-                                   isp: entry.isp)
+                                   isp: entry.isp,
+                                   hosting: entry.hosting,
+                                   mobile: entry.mobile,
+                                   proxy: entry.proxy)
                 if !info.isEmpty { out[ip] = info }
             }
             return out
@@ -186,7 +203,7 @@ actor GeoService {
             ?? URL(fileURLWithPath: NSTemporaryDirectory())
         let folder = base.appendingPathComponent("ProxyChecker", isDirectory: true)
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        return folder.appendingPathComponent("geo-cache.json")
+        return folder.appendingPathComponent("geo-cache-v2.json")
     }
 
     private func loadCacheIfNeeded() {
