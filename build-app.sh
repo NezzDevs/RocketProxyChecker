@@ -1,14 +1,10 @@
 #!/bin/bash
-# Builds "Proxy Checker.app" for Apple silicon.
-# Usage:  ./build-app.sh   then open "./Proxy Checker.app"
 
 set -euo pipefail
 
-# The bundle is what Finder labels, so it carries the spaced name. The binary
-# inside keeps the SwiftPM target name.
-APP_NAME="Proxy Checker"
+APP_NAME="Rocket Proxy Checker"
 BINARY="ProxyChecker"
-BUNDLE_ID="dev.local.proxychecker"
+BUNDLE_ID="dev.local.rocketproxychecker"
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 APP="$ROOT/$APP_NAME.app"
 
@@ -22,8 +18,6 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/$BINARY"
 
-# Icon. Regenerate from Icon.png when possible, so swapping that one picture is
-# enough to change the icon; otherwise fall back to the committed .icns.
 ICON_INSTALLED=0
 if [ -f "$ROOT/Resources/Icon.png" ] && command -v iconutil >/dev/null 2>&1; then
     echo "→ Generating icon from Icon.png…"
@@ -79,7 +73,6 @@ PLIST
 echo "→ Signing (ad-hoc)…"
 codesign --force --deep --sign - "$APP" >/dev/null 2>&1 || echo "  (ad-hoc signing skipped)"
 
-# Finder and the Dock cache icons aggressively; touching the bundle nudges them.
 touch "$APP"
 
 echo "✓ Built $APP"
