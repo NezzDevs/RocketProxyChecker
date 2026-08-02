@@ -43,6 +43,13 @@ struct ExportSheet: View {
                             )
                         }
 
+                        SettingRow("Network", help: "Leave empty for every network type.") {
+                            FlowChips(
+                                options: [NetworkType.residential, .datacenter, .mobile].map { ($0.rawValue, $0.label) },
+                                selection: $model.exportFilter.networks
+                            )
+                        }
+
                         if !model.availableCountries.isEmpty {
                             SettingRow("Country", help: "Leave empty for every country.") {
                                 FlowChips(
