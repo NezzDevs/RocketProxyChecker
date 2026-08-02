@@ -244,6 +244,7 @@ final class AppModel {
             rows[i].status = .notTested
             rows[i].speedMs = nil
             rows[i].statusCode = nil
+            rows[i].supportedTypes = rows[i].declaredType.map { [$0] } ?? []
             rows[i].error = nil
         }
 
@@ -431,6 +432,7 @@ final class AppModel {
             rows[i].speedMs = outcome.speedMs
             rows[i].statusCode = outcome.statusCode
             rows[i].resolvedType = outcome.type
+            rows[i].supportedTypes = outcome.supportedTypes
             rows[i].exitIP = outcome.exitIP
             rows[i].country = outcome.country
             rows[i].countryCode = outcome.countryCode
