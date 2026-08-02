@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="Resources/Icon.png" width="128" alt="Proxy Checker">
+<img src="Resources/Icon.png" width="128" alt="Rocket Proxy Checker">
 
-# Proxy Checker
+# Rocket Proxy Checker
 
 **A fast, native proxy checker for Apple silicon Macs.**
 
@@ -20,12 +20,12 @@ anonymity level, and export exactly the subset you need.
 
 ## Install
 
-Download **ProxyChecker.dmg** from [**Releases**](https://github.com/NezzDevs/Mac-Proxy-Checker/releases), open it, and drag **Proxy Checker** into Applications.
+Download **RocketProxyChecker.dmg** from [**Releases**](https://github.com/NezzDevs/Mac-Proxy-Checker/releases), open it, and drag **Rocket Proxy Checker** into Applications.
 
 The build is ad-hoc signed rather than notarized, so Gatekeeper blocks the first launch. Clear the quarantine flag once:
 
 ```bash
-xattr -dr com.apple.quarantine "/Applications/Proxy Checker.app"
+xattr -dr com.apple.quarantine "/Applications/Rocket Proxy Checker.app"
 ```
 
 Requires **macOS 14 or later** on Apple silicon.
@@ -162,9 +162,9 @@ Requires Xcode 15 or the Swift 5.9 toolchain.
 ```bash
 git clone https://github.com/NezzDevs/Mac-Proxy-Checker.git
 cd Mac-Proxy-Checker
-./build-app.sh         # → "Proxy Checker.app"
-./make-dmg.sh          # → ProxyChecker.dmg (optional)
-open "Proxy Checker.app"
+./build-app.sh         # → "Rocket Proxy Checker.app"
+./make-dmg.sh          # → RocketProxyChecker.dmg (optional)
+open "Rocket Proxy Checker.app"
 ```
 
 > **Build the bundle rather than running `swift run`.** App Transport Security reads the bundle's `Info.plist`, which is what permits plain `http://` targets such as `ip-api.com` and `azenv.net`. A loose binary has no plist, so those requests are blocked before they ever reach a proxy.
