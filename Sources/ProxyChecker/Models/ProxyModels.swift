@@ -103,6 +103,8 @@ struct ProxyRow: Identifiable, Sendable, Hashable {
 
     var resolvedType: ProxyType
 
+    var supportedTypes: Set<ProxyType>
+
     var status: ProxyStatus
     var speedMs: Int?
 
