@@ -50,7 +50,7 @@ enum Exporter {
     }
 
     private static let csvHeader =
-        "host,port,username,password,type,status,http_code,speed_ms,exit_ip,country,country_code,state,isp,security"
+        "host,port,username,password,type,status,http_code,speed_ms,exit_ip,country,country_code,state,isp,network,security"
 
     private static func renderCSV(rows: [ProxyRow]) -> String {
         var lines: [String] = [csvHeader]
@@ -59,7 +59,7 @@ enum Exporter {
         for row in rows {
 
             var fields: [String] = []
-            fields.reserveCapacity(14)
+            fields.reserveCapacity(15)
             fields.append(row.host)
             fields.append(String(row.port))
             fields.append(row.username ?? "")
@@ -81,6 +81,7 @@ enum Exporter {
             fields.append(row.countryCode ?? "")
             fields.append(row.state ?? "")
             fields.append(row.isp ?? "")
+            fields.append(row.network.label)
             fields.append(row.anonymity.label)
 
             lines.append(fields.map(csvEscape).joined(separator: ","))
@@ -100,6 +101,7 @@ enum Exporter {
             dict["type"] = row.resolvedType.rawValue
             dict["status"] = row.status.rawValue
             dict["security"] = row.anonymity.rawValue
+            dict["network"] = row.network.rawValue
 
             if let user = row.username, !user.isEmpty {
                 dict["username"] = user
@@ -130,6 +132,7 @@ enum Exporter {
         case .byCountry: return row.country ?? "Unknown"
         case .byState: return row.state ?? "Unknown"
         case .byAnonymity: return row.anonymity.label
+        case .byNetwork: return row.network.label
         case .bySpeed: return SpeedBand.band(for: row.speedMs).rawValue
         }
     }
