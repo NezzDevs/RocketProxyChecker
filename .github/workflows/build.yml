@@ -89,8 +89,8 @@ jobs:
           files: RocketProxyChecker.dmg
           tag_name: Latest
           name: Latest build
-          prerelease: true
-          make_latest: false
+          prerelease: false
+          make_latest: true
           body: |
             Automatic build of `main` — commit ${{ github.sha }}.
 
