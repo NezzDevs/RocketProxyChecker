@@ -9,7 +9,7 @@
 Check thousands of proxies concurrently, resolve their protocol, location and
 anonymity level, and export exactly the subset you need.
 
-[![Build](https://github.com/NezzDevs/Mac-Proxy-Checker/actions/workflows/build.yml/badge.svg)](https://github.com/NezzDevs/Mac-Proxy-Checker/actions/workflows/build.yml)
+[![Build](https://github.com/NezzDevs/RocketProxyChecker/actions/workflows/build.yml/badge.svg)](https://github.com/NezzDevs/RocketProxyChecker/actions/workflows/build.yml)
 [![Platform](https://img.shields.io/badge/platform-macOS%2014%2B-lightgrey)](https://www.apple.com/macos/)
 [![Swift](https://img.shields.io/badge/Swift-5.9-orange)](https://swift.org)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE)
@@ -20,7 +20,7 @@ anonymity level, and export exactly the subset you need.
 
 ## Install
 
-Download **RocketProxyChecker.dmg** from [**Releases**](https://github.com/NezzDevs/Mac-Proxy-Checker/releases), open it, and drag **Rocket Proxy Checker** into Applications.
+Download **RocketProxyChecker.dmg** from [**Releases**](https://github.com/NezzDevs/RocketProxyChecker/releases), open it, and drag **Rocket Proxy Checker** into Applications.
 
 The build is ad-hoc signed rather than notarized, so Gatekeeper blocks the first launch. Clear the quarantine flag once:
 
@@ -160,8 +160,8 @@ HTTP proxy credentials go through a `URLSessionTaskDelegate`; SOCKS credentials 
 Requires Xcode 15 or the Swift 5.9 toolchain.
 
 ```bash
-git clone https://github.com/NezzDevs/Mac-Proxy-Checker.git
-cd Mac-Proxy-Checker
+git clone https://github.com/NezzDevs/RocketProxyChecker.git
+cd RocketProxyChecker
 ./build-app.sh         # → "Rocket Proxy Checker.app"
 ./make-dmg.sh          # → RocketProxyChecker.dmg (optional)
 open "Rocket Proxy Checker.app"
