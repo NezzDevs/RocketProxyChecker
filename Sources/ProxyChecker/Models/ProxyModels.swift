@@ -62,6 +62,24 @@ enum ProxyStatus: String, Codable, CaseIterable, Sendable, Identifiable {
     }
 }
 
+enum NetworkType: String, Codable, CaseIterable, Sendable, Identifiable {
+    case residential
+    case datacenter
+    case mobile
+    case unknown
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .residential: return "Residential"
+        case .datacenter: return "Datacenter"
+        case .mobile: return "Mobile"
+        case .unknown: return "—"
+        }
+    }
+}
+
 enum Anonymity: String, Codable, CaseIterable, Sendable, Identifiable {
     case elite
     case anonymous
@@ -100,6 +118,7 @@ struct ProxyRow: Identifiable, Sendable, Hashable {
     var countryCode: String?
     var state: String?
     var isp: String?
+    var network: NetworkType
     var anonymity: Anonymity
     var error: String?
     var checkedAt: Date?
@@ -113,6 +132,7 @@ struct ProxyRow: Identifiable, Sendable, Hashable {
         self.declaredType = declaredType
         self.resolvedType = declaredType ?? .unknown
         self.status = .notTested
+        self.network = .unknown
         self.anonymity = .unknown
     }
 
@@ -284,6 +304,7 @@ enum ExportGrouping: String, CaseIterable, Identifiable, Codable {
     case byCountry
     case byState
     case byAnonymity
+    case byNetwork
     case bySpeed
 
     var id: String { rawValue }
@@ -295,6 +316,7 @@ enum ExportGrouping: String, CaseIterable, Identifiable, Codable {
         case .byCountry: return "One file per country"
         case .byState: return "One file per state"
         case .byAnonymity: return "One file per security type"
+        case .byNetwork: return "One file per network type"
         case .bySpeed: return "One file per speed band"
         }
     }
@@ -306,6 +328,7 @@ struct ExportFilter: Codable, Equatable {
     var countries: Set<String> = []
     var states: Set<String> = []
     var anonymities: Set<String> = []
+    var networks: Set<String> = []
     var maxSpeedMs: Int = 0
 
     func matches(_ row: ProxyRow) -> Bool {
@@ -314,6 +337,7 @@ struct ExportFilter: Codable, Equatable {
         if !countries.isEmpty, !countries.contains(row.country ?? "Unknown") { return false }
         if !states.isEmpty, !states.contains(row.state ?? "Unknown") { return false }
         if !anonymities.isEmpty, !anonymities.contains(row.anonymity.rawValue) { return false }
+        if !networks.isEmpty, !networks.contains(row.network.rawValue) { return false }
         if maxSpeedMs > 0 {
             guard let ms = row.speedMs, ms <= maxSpeedMs else { return false }
         }
