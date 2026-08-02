@@ -29,6 +29,18 @@ enum ProxyType: String, Codable, CaseIterable, Sendable, Identifiable {
         }
     }
 
+    static let detectionOrder: [ProxyType] = [.socks5, .http, .socks4]
+
+    static func primary(of set: Set<ProxyType>) -> ProxyType? {
+        detectionOrder.first { set.contains($0) }
+    }
+
+    static func label(for set: Set<ProxyType>) -> String {
+        let ordered = detectionOrder.filter { set.contains($0) }
+        guard !ordered.isEmpty else { return "—" }
+        return ordered.map(\.label).joined(separator: " · ")
+    }
+
     static func from(scheme: String) -> ProxyType? {
         switch scheme.lowercased() {
         case "http": return .http
@@ -112,6 +124,7 @@ struct ProxyRow: Identifiable, Sendable, Hashable {
         self.password = password
         self.declaredType = declaredType
         self.resolvedType = declaredType ?? .unknown
+        self.supportedTypes = declaredType.map { [$0] } ?? []
         self.status = .notTested
         self.anonymity = .unknown
     }
@@ -310,7 +323,10 @@ struct ExportFilter: Codable, Equatable {
 
     func matches(_ row: ProxyRow) -> Bool {
         guard statuses.contains(row.status.rawValue) else { return false }
-        if !types.isEmpty, !types.contains(row.resolvedType.rawValue) { return false }
+        if !types.isEmpty {
+            let available = row.supportedTypes.isEmpty ? [row.resolvedType] : Array(row.supportedTypes)
+            guard available.contains(where: { types.contains($0.rawValue) }) else { return false }
+        }
         if !countries.isEmpty, !countries.contains(row.country ?? "Unknown") { return false }
         if !states.isEmpty, !states.contains(row.state ?? "Unknown") { return false }
         if !anonymities.isEmpty, !anonymities.contains(row.anonymity.rawValue) { return false }
