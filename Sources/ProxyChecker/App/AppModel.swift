@@ -85,6 +85,13 @@ final class AppModel {
     private var cancelFlag = CancelFlag()
     private var pumpTask: Task<Void, Never>?
     private var toastTask: Task<Void, Never>?
+    private var geoTask: Task<Void, Never>?
+    private var geoQueued: Set<UUID> = []
+    private var geoResolving = false
+    private var lastGeoFlush = Date()
+
+    private static let geoBatchSize = 100
+    private static let geoFlushInterval: TimeInterval = 5
     private var stoppedManually = false
     private let sink = ResultSink()
 
@@ -215,6 +222,7 @@ final class AppModel {
         completedCount = 0
         elapsedText = ""
         report = nil
+        geoQueued.removeAll()
         dismissToast()
     }
 
@@ -244,10 +252,16 @@ final class AppModel {
             rows[i].status = .notTested
             rows[i].speedMs = nil
             rows[i].statusCode = nil
+            rows[i].exitIP = nil
+            rows[i].country = nil
+            rows[i].countryCode = nil
+            rows[i].state = nil
+            rows[i].isp = nil
             rows[i].error = nil
         }
 
         startPump()
+        startGeoPump()
 
         let settings = self.settings
         let flag = cancelFlag
@@ -284,6 +298,8 @@ final class AppModel {
         cancelFlag.cancel()
         pumpTask?.cancel()
         pumpTask = nil
+        geoTask?.cancel()
+        geoTask = nil
         flush()
         for i in rows.indices where rows[i].status == .checking {
             rows[i].status = .notTested
@@ -291,7 +307,7 @@ final class AppModel {
         isRunning = false
         if !silently {
             Task { [weak self] in
-                await self?.resolveGeo()
+                await self?.finishGeo()
                 self?.presentReport()
             }
         }
@@ -307,48 +323,88 @@ final class AppModel {
             elapsedText = formatDuration(Date().timeIntervalSince(started))
         }
         Task { [weak self] in
-            await self?.resolveGeo()
+            await self?.finishGeo()
             self?.presentReport()
         }
     }
 
-    private func resolveGeo() async {
-        guard settings.lookupGeo else { return }
+    private func startGeoPump() {
+        geoTask?.cancel()
+        geoQueued.removeAll()
+        lastGeoFlush = Date()
 
-        let live = rows.filter { $0.status == .good || $0.status == .slow }
-        guard !live.isEmpty else { return }
+        guard settings.lookupGeo else {
+            geoTask = nil
+            return
+        }
+
+        geoTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 600_000_000)
+                guard let self, self.isRunning else { return }
+                await self.drainGeoQueue(force: false)
+            }
+        }
+    }
+
+    private func drainGeoQueue(force: Bool) async {
+        guard settings.lookupGeo, !geoResolving else { return }
+
+        let candidates = rows.filter {
+            ($0.status == .good || $0.status == .slow)
+                && $0.country == nil
+                && !geoQueued.contains($0.id)
+        }
+        guard !candidates.isEmpty else { return }
+
+        let elapsed = Date().timeIntervalSince(lastGeoFlush)
+        guard force || candidates.count >= Self.geoBatchSize || elapsed >= Self.geoFlushInterval else {
+            return
+        }
+
+        let slice = force ? candidates : Array(candidates.prefix(Self.geoBatchSize))
+        geoResolving = true
+        defer { geoResolving = false }
 
         var ipByRow: [UUID: String] = [:]
 
         switch settings.geoSource {
         case .exitIP:
-            for row in live {
+            for row in slice {
                 if let ip = row.exitIP, !ip.isEmpty { ipByRow[row.id] = ip }
             }
         case .proxyHost:
-            geoStatus = "Resolving addresses…"
             var byHost: [String: String] = [:]
-            for host in Set(live.map(\.host)) {
+            for host in Set(slice.map(\.host)) {
                 if let ip = await GeoService.shared.resolveHost(host) { byHost[host] = ip }
             }
-            for row in live {
+            for row in slice {
                 if let ip = byHost[row.host] { ipByRow[row.id] = ip }
             }
         }
 
+        for row in slice { geoQueued.insert(row.id) }
+        lastGeoFlush = Date()
+
         let uniqueIPs = Array(Set(ipByRow.values))
-        guard !uniqueIPs.isEmpty else {
-            geoStatus = nil
-            return
+        guard !uniqueIPs.isEmpty else { return }
+
+        if !isRunning {
+            geoStatus = "Resolving locations… 0 of \(uniqueIPs.count)"
         }
 
-        geoStatus = "Resolving locations… 0 of \(uniqueIPs.count)"
         let geo = await GeoService.shared.lookup(ips: uniqueIPs) { [weak self] done, total in
             Task { @MainActor in
-                self?.geoStatus = "Resolving locations… \(done) of \(total)"
+                guard let self, !self.isRunning else { return }
+                self.geoStatus = "Resolving locations… \(done) of \(total)"
             }
         }
 
+        applyGeo(ipByRow: ipByRow, geo: geo)
+        geoStatus = nil
+    }
+
+    private func applyGeo(ipByRow: [UUID: String], geo: [String: GeoInfo]) {
         rebuildIndex()
         for (rowID, ip) in ipByRow {
             guard let i = indexByID[rowID] else { continue }
@@ -359,7 +415,21 @@ final class AppModel {
             rows[i].state = info.regionName
             rows[i].isp = info.isp
         }
+    }
 
+    private func finishGeo() async {
+        geoTask?.cancel()
+        geoTask = nil
+
+        while geoResolving {
+            try? await Task.sleep(nanoseconds: 150_000_000)
+        }
+
+        while true {
+            let before = geoQueued.count
+            await drainGeoQueue(force: true)
+            if geoQueued.count == before { break }
+        }
         geoStatus = nil
     }
 
