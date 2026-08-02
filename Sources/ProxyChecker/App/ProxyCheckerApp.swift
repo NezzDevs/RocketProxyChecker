@@ -42,15 +42,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 struct ProxyCheckerApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var model = AppModel()
+    @State private var columnLayout = ColumnLayout()
 
     var body: some Scene {
         Window("Rocket Proxy Checker", id: "main") {
             ContentView()
                 .environment(model)
+                .environment(columnLayout)
                 .preferredColorScheme(.dark)
                 .tint(Theme.textPrimary)
         }
-        .defaultSize(width: Columns.windowWidth, height: 900)
+        .defaultSize(width: ColumnLayout.defaultWindowWidth, height: 900)
         .windowToolbarStyle(.unified(showsTitle: true))
         .commands {
             CommandGroup(replacing: .newItem) { }
@@ -65,6 +67,8 @@ struct ProxyCheckerApp: App {
                 Divider()
                 Button("Clear List") { model.clear() }
                     .keyboardShortcut(.delete, modifiers: [.command, .shift])
+                Divider()
+                Button("Reset Column Widths") { columnLayout.resetAll() }
             }
         }
     }
