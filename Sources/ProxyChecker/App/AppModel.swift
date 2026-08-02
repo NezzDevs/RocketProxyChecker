@@ -40,7 +40,7 @@ final class ResultSink: @unchecked Sendable {
 }
 
 enum SortColumn: String, CaseIterable {
-    case host, port, username, country, state, isp, type, security, speed, status
+    case host, port, username, country, state, isp, network, type, security, speed, status
 }
 
 struct RunReport: Identifiable {
@@ -148,6 +148,7 @@ final class AppModel {
                 || (row.country?.lowercased().contains(query) ?? false)
                 || (row.state?.lowercased().contains(query) ?? false)
                 || (row.isp?.lowercased().contains(query) ?? false)
+                || row.network.label.lowercased().contains(query)
                 || (row.exitIP?.contains(query) ?? false)
             }
         }
@@ -162,6 +163,7 @@ final class AppModel {
             case .country: result = (a.country ?? "~") < (b.country ?? "~")
             case .state: result = (a.state ?? "~") < (b.state ?? "~")
             case .isp: result = (a.isp ?? "~") < (b.isp ?? "~")
+            case .network: result = a.network.label < b.network.label
             case .type: result = a.resolvedType.label < b.resolvedType.label
             case .security: result = a.anonymity.label < b.anonymity.label
             case .speed: result = (a.speedMs ?? Int.max) < (b.speedMs ?? Int.max)
@@ -257,6 +259,7 @@ final class AppModel {
             rows[i].countryCode = nil
             rows[i].state = nil
             rows[i].isp = nil
+            rows[i].network = .unknown
             rows[i].error = nil
         }
 
@@ -414,6 +417,7 @@ final class AppModel {
             rows[i].countryCode = info.countryCode
             rows[i].state = info.regionName
             rows[i].isp = info.isp
+            rows[i].network = info.network
         }
     }
 
