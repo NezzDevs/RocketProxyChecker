@@ -2,7 +2,7 @@ import SwiftUI
 import Observation
 
 enum ColumnID: String, CaseIterable, Identifiable, Codable {
-    case host, port, username, password, statusCode, country, state, isp, type, security, speed
+    case host, port, username, password, statusCode, country, state, isp, network, type, security, speed
 
     var id: String { rawValue }
 
@@ -16,6 +16,7 @@ enum ColumnID: String, CaseIterable, Identifiable, Codable {
         case .country: return "COUNTRY"
         case .state: return "STATE"
         case .isp: return "ISP"
+        case .network: return "NETWORK"
         case .type: return "TYPE"
         case .security: return "SECURITY"
         case .speed: return "SPEED"
@@ -32,6 +33,7 @@ enum ColumnID: String, CaseIterable, Identifiable, Codable {
         case .country: return 140
         case .state: return 130
         case .isp: return 190
+        case .network: return 122
         case .type: return 100
         case .security: return 118
         case .speed: return 110
@@ -49,6 +51,7 @@ enum ColumnID: String, CaseIterable, Identifiable, Codable {
     var sortColumn: SortColumn? {
         switch self {
         case .isp: return .isp
+        case .network: return .network
         case .type: return .type
         case .security: return .security
         default: return nil
