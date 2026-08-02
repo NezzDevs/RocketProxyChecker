@@ -1,37 +1,17 @@
 import SwiftUI
 import AppKit
 
-enum Columns {
-    static let host: CGFloat = 200
-    static let port: CGFloat = 72
-    static let username: CGFloat = 180
-    static let password: CGFloat = 150
-    static let statusCode: CGFloat = 84
-    static let country: CGFloat = 130
-    static let state: CGFloat = 120
-    static let isp: CGFloat = 180
-    static let type: CGFloat = 88
-    static let security: CGFloat = 110
-    static let speed: CGFloat = 100
-
-    static var total: CGFloat {
-        host + port + username + password + statusCode
-            + country + state + isp + type + security + speed + 44
-    }
-
-    static var windowWidth: CGFloat { total + 28 + 24 }
-}
-
 struct DetailsTable: View {
     @Environment(AppModel.self) private var model
+    @Environment(ColumnLayout.self) private var layout
 
     var body: some View {
         let rows = model.visibleRows
 
         GeometryReader { proxy in
-            let contentWidth = max(Columns.total, proxy.size.width)
+            let contentWidth = max(layout.total, proxy.size.width)
 
-            ScrollView(.horizontal, showsIndicators: false) {
+            ScrollView(.horizontal, showsIndicators: true) {
                 VStack(spacing: 0) {
                     header
 
@@ -57,63 +37,61 @@ struct DetailsTable: View {
     }
 
     private var header: some View {
-
         HStack(spacing: 0) {
-            headerLabel("HOST", width: Columns.host)
-            headerLabel("PORT", width: Columns.port)
-            headerLabel("USERNAME", width: Columns.username)
-            headerLabel("PASSWORD", width: Columns.password)
-            headerLabel("STATUS", width: Columns.statusCode)
-            headerLabel("COUNTRY", width: Columns.country)
-            headerLabel("STATE", width: Columns.state)
-            sortableHeader("ISP", .isp, width: Columns.isp)
-            sortableHeader("TYPE", .type, width: Columns.type)
-            sortableHeader("SECURITY", .security, width: Columns.security)
-            headerLabel("SPEED", width: Columns.speed)
+            ForEach(ColumnID.allCases) { column in
+                headerCell(column)
+            }
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 22)
         .frame(height: 42)
         .background(Theme.headerRow)
         .overlay(alignment: .bottom) {
             Rectangle().fill(Theme.hairlineStrong).frame(height: 1)
         }
-    }
-
-    private func headerLabel(_ title: String, width: CGFloat) -> some View {
-        Text(title)
-            .font(.system(size: 11, weight: .semibold))
-            .tracking(0.6)
-            .foregroundStyle(Theme.textSecondary)
-            .frame(width: width, alignment: .leading)
+        .contextMenu {
+            Button("Reset column widths") { layout.resetAll() }
+        }
     }
 
     @ViewBuilder
-    private func sortableHeader(_ title: String, _ column: SortColumn, width: CGFloat) -> some View {
-        let isActive = model.sortColumn == column
+    private func headerCell(_ column: ColumnID) -> some View {
+        let sort = column.sortColumn
+        let isActive = sort != nil && model.sortColumn == sort
 
         Button {
-            model.toggleSort(column)
+            if let sort { model.toggleSort(sort) }
         } label: {
             HStack(spacing: 4) {
-                Text(title)
+                Text(column.title)
                     .font(.system(size: 11, weight: .semibold))
                     .tracking(0.6)
                     .foregroundStyle(isActive ? Theme.textPrimary : Theme.textSecondary)
-                Image(systemName: isActive
-                      ? (model.sortAscending ? "chevron.up" : "chevron.down")
-                      : "chevron.up.chevron.down")
-                    .font(.system(size: 8, weight: .bold))
-                    .foregroundStyle(isActive ? Theme.textSecondary : Theme.textFaint)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+
+                if sort != nil {
+                    Image(systemName: isActive
+                          ? (model.sortAscending ? "chevron.up" : "chevron.down")
+                          : "chevron.up.chevron.down")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundStyle(isActive ? Theme.textSecondary : Theme.textFaint)
+                }
                 Spacer(minLength: 0)
             }
-            .frame(width: width, alignment: .leading)
+            .padding(.horizontal, 12)
+            .frame(width: layout.width(column), height: 42, alignment: .leading)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help(isActive && !model.sortAscending
-              ? "Click to sort by speed again"
-              : "Sort by \(title.lowercased())")
+        .disabled(sort == nil)
+        .overlay(alignment: .trailing) {
+            Rectangle()
+                .fill(Theme.hairlineStrong)
+                .frame(width: 1)
+        }
+        .overlay(alignment: .trailing) {
+            ResizeHandle(column: column)
+        }
     }
 
     private var emptyState: some View {
@@ -135,83 +113,65 @@ struct DetailsTable: View {
     }
 }
 
+private struct ResizeHandle: View {
+    let column: ColumnID
+    @Environment(ColumnLayout.self) private var layout
+
+    @State private var startWidth: CGFloat?
+    @State private var hovering = false
+
+    var body: some View {
+        Rectangle()
+            .fill(hovering || startWidth != nil ? Theme.textSecondary : Color.clear)
+            .frame(width: hovering || startWidth != nil ? 2 : 1)
+            .frame(width: 9)
+            .contentShape(Rectangle())
+            .onHover { inside in
+                hovering = inside
+                if inside {
+                    NSCursor.resizeLeftRight.set()
+                } else if startWidth == nil {
+                    NSCursor.arrow.set()
+                }
+            }
+            .gesture(
+                DragGesture(minimumDistance: 1)
+                    .onChanged { value in
+                        let base: CGFloat
+                        if let startWidth {
+                            base = startWidth
+                        } else {
+                            base = layout.width(column)
+                            startWidth = base
+                        }
+                        layout.setWidth(base + value.translation.width, for: column)
+                    }
+                    .onEnded { _ in
+                        startWidth = nil
+                        if !hovering { NSCursor.arrow.set() }
+                    }
+            )
+            .onTapGesture(count: 2) { layout.reset(column) }
+            .help("Drag to resize. Double-click to reset.")
+    }
+}
+
 private struct DetailRow: View {
     let row: ProxyRow
     let zebra: Bool
     let showPassword: Bool
 
+    @Environment(ColumnLayout.self) private var layout
     @State private var hovering = false
 
     var body: some View {
         HStack(spacing: 0) {
-            Text(row.host)
-                .font(.mono(12.5))
-                .foregroundStyle(Theme.textPrimary)
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .frame(width: Columns.host, alignment: .leading)
-
-            Text(verbatim: String(row.port))
-                .font(.mono(12.5))
-                .foregroundStyle(Theme.textPrimary)
-                .frame(width: Columns.port, alignment: .leading)
-
-            Text(row.username ?? "—")
-                .font(.mono(12.5))
-                .foregroundStyle(row.username == nil ? Theme.textFaint : Theme.textPrimary)
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .frame(width: Columns.username, alignment: .leading)
-
-            Group {
-                if let password = row.password, !password.isEmpty {
-                    Text(showPassword ? password : String(repeating: "•", count: min(password.count, 14)))
-                        .font(.mono(12.5))
-                        .foregroundStyle(showPassword ? Theme.textPrimary : Theme.textSecondary)
-                } else {
-                    Text("—").font(.mono(12.5)).foregroundStyle(Theme.textFaint)
-                }
+            ForEach(ColumnID.allCases) { column in
+                cell(column)
             }
-            .lineLimit(1)
-            .truncationMode(.tail)
-            .frame(width: Columns.password, alignment: .leading)
-
-            statusCodeCell
-                .frame(width: Columns.statusCode, alignment: .leading)
-
-            Text(row.country ?? "—")
-                .foregroundStyle(row.country == nil ? Theme.textFaint : Theme.textPrimary)
-                .lineLimit(1)
-                .frame(width: Columns.country, alignment: .leading)
-
-            Text(row.state ?? "—")
-                .foregroundStyle(row.state == nil ? Theme.textFaint : Theme.textPrimary)
-                .lineLimit(1)
-                .frame(width: Columns.state, alignment: .leading)
-
-            Text(row.isp ?? "—")
-                .foregroundStyle(row.isp == nil ? Theme.textFaint : Theme.textPrimary)
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .frame(width: Columns.isp, alignment: .leading)
-
-            Text(row.resolvedType.label)
-                .font(.mono(11.5, .medium))
-                .foregroundStyle(row.resolvedType == .unknown ? Theme.textFaint : Theme.textSecondary)
-                .frame(width: Columns.type, alignment: .leading)
-
-            Text(row.anonymity.label)
-                .font(.system(size: 12))
-                .foregroundStyle(row.anonymity == .unknown ? Theme.textFaint : Theme.textSecondary)
-                .frame(width: Columns.security, alignment: .leading)
-
-            statusCell
-                .frame(width: Columns.speed, alignment: .leading)
-
             Spacer(minLength: 0)
         }
         .font(.system(size: 13))
-        .padding(.horizontal, 22)
         .frame(height: Theme.rowHeight)
         .background(hovering ? Theme.rowHover : (zebra ? Theme.rowAlt : Theme.panel))
         .overlay(alignment: .bottom) {
@@ -233,20 +193,88 @@ private struct DetailRow: View {
     }
 
     @ViewBuilder
-    private var statusCodeCell: some View {
-        if let code = row.statusCode {
-            Text(verbatim: String(code))
-                .font(.mono(12.5))
-                .foregroundStyle(Theme.textPrimary)
-        } else {
-            Text("—")
-                .font(.mono(12.5))
-                .foregroundStyle(Theme.textFaint)
-        }
+    private func cell(_ column: ColumnID) -> some View {
+        content(column)
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .padding(.horizontal, 12)
+            .frame(width: layout.width(column), height: Theme.rowHeight, alignment: .leading)
+            .overlay(alignment: .trailing) {
+                Rectangle().fill(Theme.hairline).frame(width: 1)
+            }
     }
 
     @ViewBuilder
-    private var statusCell: some View {
+    private func content(_ column: ColumnID) -> some View {
+        switch column {
+        case .host:
+            Text(row.host)
+                .font(.mono(12.5))
+                .foregroundStyle(Theme.textPrimary)
+
+        case .port:
+            Text(verbatim: String(row.port))
+                .font(.mono(12.5))
+                .foregroundStyle(Theme.textPrimary)
+
+        case .username:
+            Text(row.username ?? "—")
+                .font(.mono(12.5))
+                .foregroundStyle(row.username == nil ? Theme.textFaint : Theme.textPrimary)
+
+        case .password:
+            if let password = row.password, !password.isEmpty {
+                Text(showPassword ? password : String(repeating: "•", count: min(password.count, 14)))
+                    .font(.mono(12.5))
+                    .foregroundStyle(showPassword ? Theme.textPrimary : Theme.textSecondary)
+            } else {
+                Text("—").font(.mono(12.5)).foregroundStyle(Theme.textFaint)
+            }
+
+        case .statusCode:
+            if let code = row.statusCode {
+                Text(verbatim: String(code))
+                    .font(.mono(12.5))
+                    .foregroundStyle(Theme.textPrimary)
+            } else {
+                Text("—").font(.mono(12.5)).foregroundStyle(Theme.textFaint)
+            }
+
+        case .country:
+            Text(row.country ?? "—")
+                .foregroundStyle(row.country == nil ? Theme.textFaint : Theme.textPrimary)
+
+        case .state:
+            Text(row.state ?? "—")
+                .foregroundStyle(row.state == nil ? Theme.textFaint : Theme.textPrimary)
+
+        case .isp:
+            Text(row.isp ?? "—")
+                .foregroundStyle(row.isp == nil ? Theme.textFaint : Theme.textPrimary)
+
+        case .type:
+            Text(typeText)
+                .font(.mono(11.5, .medium))
+                .foregroundStyle(row.resolvedType == .unknown ? Theme.textFaint : Theme.textSecondary)
+
+        case .security:
+            Text(row.anonymity.label)
+                .font(.system(size: 12))
+                .foregroundStyle(row.anonymity == .unknown ? Theme.textFaint : Theme.textSecondary)
+
+        case .speed:
+            speedContent
+        }
+    }
+
+    private var typeText: String {
+        row.supportedTypes.count > 1
+            ? ProxyType.label(for: row.supportedTypes)
+            : row.resolvedType.label
+    }
+
+    @ViewBuilder
+    private var speedContent: some View {
         switch row.status {
         case .good, .slow:
             HStack(spacing: 6) {
