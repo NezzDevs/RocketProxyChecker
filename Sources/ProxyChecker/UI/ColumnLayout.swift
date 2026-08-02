@@ -32,7 +32,7 @@ enum ColumnID: String, CaseIterable, Identifiable, Codable {
         case .country: return 140
         case .state: return 130
         case .isp: return 190
-        case .type: return 148
+        case .type: return 100
         case .security: return 118
         case .speed: return 110
         }
