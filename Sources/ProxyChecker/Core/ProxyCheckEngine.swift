@@ -5,6 +5,7 @@ struct CheckOutcome: Sendable {
     var speedMs: Int?
     var statusCode: Int?
     var type: ProxyType = .unknown
+    var supportedTypes: Set<ProxyType> = []
     var exitIP: String?
     var country: String?
     var countryCode: String?
@@ -148,19 +149,24 @@ enum ProxyCheckEngine {
     static func check(row: ProxyRow, settings: CheckSettings, realIP: String?) async -> CheckOutcome {
         var outcome = CheckOutcome()
 
-        var type: ProxyType
+        let type: ProxyType
         if let forced = settings.typeMode.forcedType {
             type = forced
+            outcome.supportedTypes = [forced]
         } else if let declared = row.declaredType, declared != .unknown {
             type = declared
-        } else if let detected = await ProxyProbe.detectType(host: row.host,
-                                                             port: row.port,
-                                                             timeout: min(settings.timeoutSeconds, 8)) {
-            type = detected
+            outcome.supportedTypes = [declared]
         } else {
-            outcome.status = .failed
-            outcome.error = "No proxy protocol detected on \(row.endpoint)"
-            return outcome
+            let detected = await ProxyProbe.detectAll(host: row.host,
+                                                      port: row.port,
+                                                      timeout: min(settings.timeoutSeconds, 8))
+            guard let primary = ProxyType.primary(of: detected) else {
+                outcome.status = .failed
+                outcome.error = "No proxy protocol detected on \(row.endpoint)"
+                return outcome
+            }
+            type = primary
+            outcome.supportedTypes = detected
         }
         outcome.type = type
 
