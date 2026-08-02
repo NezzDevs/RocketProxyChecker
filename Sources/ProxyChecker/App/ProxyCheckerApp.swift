@@ -1,5 +1,5 @@
 //
-//  Proxy Checker — a native proxy checker for macOS.
+//  Rocket Proxy Checker — a native proxy checker for macOS.
 //  Copyright (C) 2026 NezzDevs
 //
 //  This program is free software: you can redistribute it and/or modify
@@ -44,7 +44,7 @@ struct ProxyCheckerApp: App {
     @State private var model = AppModel()
 
     var body: some Scene {
-        Window("Proxy Checker", id: "main") {
+        Window("Rocket Proxy Checker", id: "main") {
             ContentView()
                 .environment(model)
                 .preferredColorScheme(.dark)
