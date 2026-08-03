@@ -6,6 +6,14 @@ struct ExportSheet: View {
 
     @State private var format: ExportFormat = .schemeURL
     @State private var grouping: ExportGrouping = .single
+    @State private var baseName = "proxies"
+
+    private var fileNameHelp: String {
+        let stem = Exporter.safeStem(baseName)
+        return grouping == .single
+            ? "Saved as \(stem).\(format.fileExtension)"
+            : "Saved as \(stem)_<group>.\(format.fileExtension)"
+    }
 
     private var matchCount: Int {
         model.rows.lazy.filter { model.exportFilter.matches($0) }.count
@@ -86,6 +94,15 @@ struct ExportSheet: View {
                     }
 
                     SettingsGroup("Write") {
+                        SettingRow("File name", help: fileNameHelp) {
+                            FieldBox {
+                                TextField("proxies", text: $baseName)
+                                    .textFieldStyle(.plain)
+                                    .font(.mono(12))
+                            }
+                            .frame(width: 280)
+                        }
+
                         SettingRow("Line format") {
                             Picker("", selection: $format) {
                                 ForEach(ExportFormat.allCases) { option in
@@ -132,7 +149,7 @@ struct ExportSheet: View {
 
                 Button("Choose folder…") {
                     dismiss()
-                    model.export(format: format, grouping: grouping)
+                    model.export(format: format, grouping: grouping, baseName: baseName)
                 }
                 .buttonStyle(BarButtonStyle(prominent: true))
                 .keyboardShortcut(.defaultAction)
