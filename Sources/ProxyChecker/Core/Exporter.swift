@@ -40,6 +40,19 @@ enum Exporter {
         return Summary(fileCount: written, proxyCount: matching.count, directory: directory)
     }
 
+    static func exportSingle(rows: [ProxyRow],
+                             filter: ExportFilter,
+                             format: ExportFormat,
+                             to url: URL) throws -> Summary {
+        let matching = rows.filter { filter.matches($0) }
+        guard !matching.isEmpty else {
+            return Summary(fileCount: 0, proxyCount: 0, directory: url.deletingLastPathComponent())
+        }
+        let sorted = matching.sorted { ($0.speedMs ?? Int.max) < ($1.speedMs ?? Int.max) }
+        try render(rows: sorted, format: format).write(to: url, atomically: true, encoding: .utf8)
+        return Summary(fileCount: 1, proxyCount: matching.count, directory: url.deletingLastPathComponent())
+    }
+
     static func render(rows: [ProxyRow], format: ExportFormat) -> String {
         switch format {
         case .csv:
