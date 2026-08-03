@@ -517,7 +517,7 @@ final class AppModel {
         }
     }
 
-    func export(format: ExportFormat, grouping: ExportGrouping) {
+    func export(format: ExportFormat, grouping: ExportGrouping, baseName: String) {
         let panel = NSOpenPanel()
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
@@ -532,7 +532,8 @@ final class AppModel {
                                               filter: exportFilter,
                                               format: format,
                                               grouping: grouping,
-                                              to: directory)
+                                              to: directory,
+                                              baseName: baseName)
             if summary.proxyCount == 0 {
                 notify("No proxies matched the export filter.")
             } else {
