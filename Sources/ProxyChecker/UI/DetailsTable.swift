@@ -10,11 +10,11 @@ struct DetailsTable: View {
 
         GeometryReader { proxy in
             let contentWidth = max(layout.total, proxy.size.width)
-            let stretch = max(0, proxy.size.width - layout.total)
+            let metrics = ColumnMetrics.make(base: layout.baseWidths, available: proxy.size.width)
 
             ScrollView(.horizontal, showsIndicators: true) {
                 VStack(spacing: 0) {
-                    header(stretch: stretch)
+                    header(metrics: metrics)
 
                     if rows.isEmpty {
                         emptyState
@@ -25,7 +25,7 @@ struct DetailsTable: View {
                                     DetailRow(row: row,
                                               zebra: index.isMultiple(of: 2),
                                               showPassword: model.showPasswords,
-                                              stretch: stretch)
+                                              metrics: metrics)
                                 }
                             }
                         }
@@ -38,10 +38,10 @@ struct DetailsTable: View {
         .clipShape(RoundedRectangle(cornerRadius: Theme.corner, style: .continuous))
     }
 
-    private func header(stretch: CGFloat) -> some View {
+    private func header(metrics: ColumnMetrics) -> some View {
         HStack(spacing: 0) {
             ForEach(ColumnID.allCases) { column in
-                headerCell(column, stretch: stretch)
+                headerCell(column, metrics: metrics)
             }
         }
         .frame(height: 42)
@@ -55,17 +55,17 @@ struct DetailsTable: View {
     }
 
     @ViewBuilder
-    private func headerCell(_ column: ColumnID, stretch: CGFloat) -> some View {
+    private func headerCell(_ column: ColumnID, metrics: ColumnMetrics) -> some View {
         Group {
             if let sort = column.sortColumn {
                 Button {
                     model.toggleSort(sort)
                 } label: {
-                    headerLabel(column, isActive: model.sortColumn == sort, stretch: stretch)
+                    headerLabel(column, isActive: model.sortColumn == sort, metrics: metrics)
                 }
                 .buttonStyle(.plain)
             } else {
-                headerLabel(column, isActive: false, stretch: stretch)
+                headerLabel(column, isActive: false, metrics: metrics)
             }
         }
         .overlay(alignment: .trailing) {
@@ -77,12 +77,12 @@ struct DetailsTable: View {
         }
         .overlay(alignment: .trailing) {
             if !ColumnID.isLast(column) {
-                ResizeHandle(column: column)
+                ResizeHandle(column: column, scale: metrics.scale)
             }
         }
     }
 
-    private func headerLabel(_ column: ColumnID, isActive: Bool, stretch: CGFloat) -> some View {
+    private func headerLabel(_ column: ColumnID, isActive: Bool, metrics: ColumnMetrics) -> some View {
         HStack(spacing: 4) {
             Text(column.title)
                 .font(.system(size: 11, weight: .semibold))
@@ -101,9 +101,7 @@ struct DetailsTable: View {
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 12)
-        .frame(width: layout.width(column) + (ColumnID.isLast(column) ? stretch : 0),
-               height: 42,
-               alignment: .leading)
+        .frame(width: metrics.width(column), height: 42, alignment: .leading)
         .contentShape(Rectangle())
     }
 
@@ -128,6 +126,7 @@ struct DetailsTable: View {
 
 private struct ResizeHandle: View {
     let column: ColumnID
+    let scale: CGFloat
     @Environment(ColumnLayout.self) private var layout
 
     @State private var startWidth: CGFloat?
@@ -157,7 +156,7 @@ private struct ResizeHandle: View {
                             base = layout.width(column)
                             startWidth = base
                         }
-                        layout.setWidth(base + value.translation.width, for: column)
+                        layout.setWidth(base + value.translation.width / max(scale, 0.01), for: column)
                     }
                     .onEnded { _ in
                         startWidth = nil
@@ -173,7 +172,7 @@ private struct DetailRow: View {
     let row: ProxyRow
     let zebra: Bool
     let showPassword: Bool
-    let stretch: CGFloat
+    let metrics: ColumnMetrics
 
     @Environment(ColumnLayout.self) private var layout
     @State private var hovering = false
@@ -211,9 +210,7 @@ private struct DetailRow: View {
             .lineLimit(1)
             .truncationMode(.tail)
             .padding(.horizontal, 12)
-            .frame(width: layout.width(column) + (ColumnID.isLast(column) ? stretch : 0),
-                   height: Theme.rowHeight,
-                   alignment: .leading)
+            .frame(width: metrics.width(column), height: Theme.rowHeight, alignment: .leading)
             .overlay(alignment: .trailing) {
                 if !ColumnID.isLast(column) {
                     Rectangle().fill(Theme.hairline).frame(width: 1)
