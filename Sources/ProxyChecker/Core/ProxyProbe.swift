@@ -120,11 +120,31 @@ final class TCPClient: @unchecked Sendable {
 
 enum ProxyProbe {
 
+    private static let priority: [ProxyType] = [.socks5, .http, .socks4]
+
     static func detectType(host: String, port: Int, timeout: TimeInterval) async -> ProxyType? {
-        if await probeSOCKS5(host: host, port: port, timeout: timeout) { return .socks5 }
-        if await probeHTTP(host: host, port: port, timeout: timeout) { return .http }
-        if await probeSOCKS4(host: host, port: port, timeout: timeout) { return .socks4 }
-        return nil
+        await withTaskGroup(of: ProxyType?.self) { group in
+            group.addTask {
+                await probeSOCKS5(host: host, port: port, timeout: timeout) ? .socks5 : nil
+            }
+            group.addTask {
+                await probeHTTP(host: host, port: port, timeout: timeout) ? .http : nil
+            }
+            group.addTask {
+                await probeSOCKS4(host: host, port: port, timeout: timeout) ? .socks4 : nil
+            }
+
+            var found: Set<ProxyType> = []
+            for await result in group {
+                guard let result else { continue }
+                if result == priority[0] {
+                    group.cancelAll()
+                    return result
+                }
+                found.insert(result)
+            }
+            return priority.first { found.contains($0) }
+        }
     }
 
     private static func probeSOCKS5(host: String, port: Int, timeout: TimeInterval) async -> Bool {
