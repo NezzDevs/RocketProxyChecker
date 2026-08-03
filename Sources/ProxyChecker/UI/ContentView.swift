@@ -32,7 +32,18 @@ struct ContentView: View {
 
         .frame(minWidth: 1080, minHeight: 620)
         .background(Theme.background)
-
+        .background(WindowCloseInterceptor())
+        .onAppear {
+            CloseGuard.shared.isRunning = model.isRunning
+            CloseGuard.shared.resultCount = model.total
+            CloseGuard.shared.onConfirm = { model.stop(silently: true) }
+        }
+        .onChange(of: model.isRunning) { _, running in
+            CloseGuard.shared.isRunning = running
+        }
+        .onChange(of: model.total) { _, count in
+            CloseGuard.shared.resultCount = count
+        }
         .overlay {
             if showTargetEditor {
                 TargetEditorCard(isPresented: $showTargetEditor)
@@ -43,6 +54,12 @@ struct ContentView: View {
                 RunReportCard(report: report) { model.report = nil }
             }
         }
+        .overlay {
+            if CloseGuard.shared.isPresented {
+                QuitConfirmCard()
+            }
+        }
+        .animation(.easeOut(duration: 0.16), value: CloseGuard.shared.isPresented)
         .animation(.easeOut(duration: 0.16), value: showTargetEditor)
         .animation(.easeOut(duration: 0.16), value: model.report?.id)
         .sheet(isPresented: $showSettings) { SettingsSheet() }
@@ -426,5 +443,45 @@ private struct RunReportCard: View {
             .frame(width: 360)
         }
         .onExitCommand(perform: onClose)
+    }
+}
+
+private struct QuitConfirmCard: View {
+
+    var body: some View {
+        let guardObject = CloseGuard.shared
+
+        CenteredCard(onDismiss: { guardObject.cancel() }) {
+            VStack(spacing: 14) {
+                Image(systemName: "exclamationmark.triangle")
+                    .font(.system(size: 28, weight: .light))
+                    .foregroundStyle(Theme.slow)
+
+                VStack(spacing: 6) {
+                    Text("Quit Rocket Proxy Checker?")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Theme.textPrimary)
+                    Text(guardObject.message)
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(Theme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                HStack(spacing: 10) {
+                    Button("Cancel") { guardObject.cancel() }
+                        .buttonStyle(BarButtonStyle())
+                        .keyboardShortcut(.cancelAction)
+
+                    Button("Quit Anyway") { guardObject.confirmQuit() }
+                        .buttonStyle(BarButtonStyle(prominent: true))
+                }
+                .padding(.top, 2)
+            }
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, 30)
+            .padding(.vertical, 26)
+            .frame(width: 400)
+        }
+        .onExitCommand { guardObject.cancel() }
     }
 }
