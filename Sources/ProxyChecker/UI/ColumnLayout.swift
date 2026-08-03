@@ -48,6 +48,10 @@ enum ColumnID: String, CaseIterable, Identifiable, Codable {
         }
     }
 
+    static func isLast(_ column: ColumnID) -> Bool {
+        column == allCases.last
+    }
+
     var sortColumn: SortColumn? {
         switch self {
         case .isp: return .isp
