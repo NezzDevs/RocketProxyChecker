@@ -9,10 +9,7 @@ struct ExportSheet: View {
     @State private var baseName = "proxies"
 
     private var fileNameHelp: String {
-        let stem = Exporter.safeStem(baseName)
-        return grouping == .single
-            ? "Saved as \(stem).\(format.fileExtension)"
-            : "Saved as \(stem)_<group>.\(format.fileExtension)"
+        "Saved as \(Exporter.safeStem(baseName))_<group>.\(format.fileExtension)"
     }
 
     private var matchCount: Int {
@@ -94,15 +91,6 @@ struct ExportSheet: View {
                     }
 
                     SettingsGroup("Write") {
-                        SettingRow("File name", help: fileNameHelp) {
-                            FieldBox {
-                                TextField("proxies", text: $baseName)
-                                    .textFieldStyle(.plain)
-                                    .font(.mono(12))
-                            }
-                            .frame(width: 280)
-                        }
-
                         SettingRow("Line format") {
                             Picker("", selection: $format) {
                                 ForEach(ExportFormat.allCases) { option in
@@ -121,6 +109,17 @@ struct ExportSheet: View {
                             }
                             .labelsHidden()
                             .frame(width: 280)
+                        }
+
+                        if grouping != .single {
+                            SettingRow("File name", help: fileNameHelp) {
+                                FieldBox {
+                                    TextField("proxies", text: $baseName)
+                                        .textFieldStyle(.plain)
+                                        .font(.mono(12))
+                                }
+                                .frame(width: 280)
+                            }
                         }
                     }
                 }
@@ -147,7 +146,7 @@ struct ExportSheet: View {
                 .buttonStyle(BarButtonStyle())
                 .disabled(matchCount == 0)
 
-                Button("Choose folder…") {
+                Button(grouping == .single ? "Save…" : "Choose folder…") {
                     dismiss()
                     model.export(format: format, grouping: grouping, baseName: baseName)
                 }
