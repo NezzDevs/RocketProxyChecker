@@ -15,6 +15,8 @@ enum Exporter {
                        to directory: URL,
                        baseName: String = "proxies") throws -> Summary {
 
+        let stem = safeStem(baseName)
+
         let matching = rows.filter { filter.matches($0) }
         guard !matching.isEmpty else {
             return Summary(fileCount: 0, proxyCount: 0, directory: directory)
@@ -29,7 +31,7 @@ enum Exporter {
         for (key, group) in buckets {
             let sorted = group.sorted { ($0.speedMs ?? Int.max) < ($1.speedMs ?? Int.max) }
             let contents = render(rows: sorted, format: format)
-            let name = key.isEmpty ? baseName : "\(baseName)_\(sanitize(key))"
+            let name = key.isEmpty ? stem : "\(stem)_\(sanitize(key))"
             let url = directory.appendingPathComponent("\(name).\(format.fileExtension)")
             try contents.write(to: url, atomically: true, encoding: .utf8)
             written += 1
@@ -135,6 +137,14 @@ enum Exporter {
         case .byNetwork: return row.network.label
         case .bySpeed: return SpeedBand.band(for: row.speedMs).rawValue
         }
+    }
+
+    static func safeStem(_ name: String) -> String {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let blocked = CharacterSet(charactersIn: "/\\:*?\"<>|")
+        let cleaned = trimmed.components(separatedBy: blocked).joined()
+        let stripped = cleaned.trimmingCharacters(in: CharacterSet(charactersIn: ". "))
+        return stripped.isEmpty ? "proxies" : String(stripped.prefix(120))
     }
 
     private static func sanitize(_ name: String) -> String {
