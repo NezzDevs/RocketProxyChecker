@@ -49,11 +49,11 @@ final class TCPClient: @unchecked Sendable {
     private let connection: NWConnection
     private let queue = DispatchQueue(label: "proxychecker.tcp", qos: .userInitiated)
 
-    init(host: String, port: UInt16) {
+    init(host: String, port: UInt16, connectTimeout: Int = 5) {
         let params = NWParameters.tcp
         params.allowLocalEndpointReuse = true
         if let tcp = params.defaultProtocolStack.internetProtocol as? NWProtocolTCP.Options {
-            tcp.connectionTimeout = 10
+            tcp.connectionTimeout = connectTimeout
             tcp.noDelay = true
         }
         connection = NWConnection(
@@ -64,51 +64,63 @@ final class TCPClient: @unchecked Sendable {
     }
 
     func connect() async throws {
-        try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
-            let once = Once()
-            connection.stateUpdateHandler = { state in
-                switch state {
-                case .ready:
-                    once.run { cont.resume() }
-                case .failed(let error):
-                    once.run { cont.resume(throwing: error) }
-                case .waiting(let error):
-                    once.run { cont.resume(throwing: error) }
-                case .cancelled:
-                    once.run { cont.resume(throwing: ProbeError.cancelled) }
-                default:
-                    break
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
+                let once = Once()
+                connection.stateUpdateHandler = { state in
+                    switch state {
+                    case .ready:
+                        once.run { cont.resume() }
+                    case .failed(let error):
+                        once.run { cont.resume(throwing: error) }
+                    case .waiting(let error):
+                        once.run { cont.resume(throwing: error) }
+                    case .cancelled:
+                        once.run { cont.resume(throwing: ProbeError.cancelled) }
+                    default:
+                        break
+                    }
                 }
+                connection.start(queue: queue)
             }
-            connection.start(queue: queue)
+        } onCancel: {
+            connection.cancel()
         }
     }
 
     func send(_ data: Data) async throws {
-        try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
-            let once = Once()
-            connection.send(content: data, completion: .contentProcessed { error in
-                once.run {
-                    if let error { cont.resume(throwing: error) } else { cont.resume() }
-                }
-            })
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
+                let once = Once()
+                connection.send(content: data, completion: .contentProcessed { error in
+                    once.run {
+                        if let error { cont.resume(throwing: error) } else { cont.resume() }
+                    }
+                })
+            }
+        } onCancel: {
+            connection.cancel()
         }
     }
 
     func receive(min: Int, max: Int) async throws -> Data {
-        try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Data, Error>) in
-            let once = Once()
-            connection.receive(minimumIncompleteLength: min, maximumLength: max) { data, _, _, error in
-                once.run {
-                    if let error {
-                        cont.resume(throwing: error)
-                    } else if let data, !data.isEmpty {
-                        cont.resume(returning: data)
-                    } else {
-                        cont.resume(throwing: ProbeError.closed)
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Data, Error>) in
+                let once = Once()
+                connection.receive(minimumIncompleteLength: min, maximumLength: max) { data, _, _, error in
+                    once.run {
+                        if let error {
+                            cont.resume(throwing: error)
+                        } else if let data, !data.isEmpty {
+                            cont.resume(returning: data)
+                        } else {
+                            cont.resume(throwing: ProbeError.closed)
+                        }
                     }
                 }
             }
+        } onCancel: {
+            connection.cancel()
         }
     }
 
@@ -120,31 +132,14 @@ final class TCPClient: @unchecked Sendable {
 
 enum ProxyProbe {
 
-    private static let priority: [ProxyType] = [.socks5, .http, .socks4]
-
     static func detectType(host: String, port: Int, timeout: TimeInterval) async -> ProxyType? {
-        await withTaskGroup(of: ProxyType?.self) { group in
-            group.addTask {
-                await probeSOCKS5(host: host, port: port, timeout: timeout) ? .socks5 : nil
-            }
-            group.addTask {
-                await probeHTTP(host: host, port: port, timeout: timeout) ? .http : nil
-            }
-            group.addTask {
-                await probeSOCKS4(host: host, port: port, timeout: timeout) ? .socks4 : nil
-            }
-
-            var found: Set<ProxyType> = []
-            for await result in group {
-                guard let result else { continue }
-                if result == priority[0] {
-                    group.cancelAll()
-                    return result
-                }
-                found.insert(result)
-            }
-            return priority.first { found.contains($0) }
-        }
+        let budget = max(2, min(timeout, 5))
+        if await probeSOCKS5(host: host, port: port, timeout: budget) { return .socks5 }
+        if Task.isCancelled { return nil }
+        if await probeHTTP(host: host, port: port, timeout: budget) { return .http }
+        if Task.isCancelled { return nil }
+        if await probeSOCKS4(host: host, port: port, timeout: budget) { return .socks4 }
+        return nil
     }
 
     private static func probeSOCKS5(host: String, port: Int, timeout: TimeInterval) async -> Bool {
@@ -182,7 +177,9 @@ enum ProxyProbe {
                                  port: Int,
                                  timeout: TimeInterval,
                                  body: @escaping @Sendable (TCPClient) async throws -> Bool) async -> Bool {
-        let client = TCPClient(host: host, port: UInt16(clamping: port))
+        let client = TCPClient(host: host,
+                               port: UInt16(clamping: port),
+                               connectTimeout: Int(timeout.rounded(.up)))
         defer { client.close() }
         do {
             return try await withTimeout(timeout) {
@@ -190,6 +187,7 @@ enum ProxyProbe {
                 return try await body(client)
             }
         } catch {
+            client.close()
             return false
         }
     }
