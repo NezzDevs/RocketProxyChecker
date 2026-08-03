@@ -63,6 +63,36 @@ enum ColumnID: String, CaseIterable, Identifiable, Codable {
     }
 }
 
+struct ColumnMetrics: Equatable {
+    var widths: [ColumnID: CGFloat] = [:]
+    var scale: CGFloat = 1
+
+    func width(_ column: ColumnID) -> CGFloat {
+        widths[column] ?? column.defaultWidth
+    }
+
+    static func make(base: [ColumnID: CGFloat], available: CGFloat) -> ColumnMetrics {
+        let all = ColumnID.allCases
+        let total = all.reduce(0) { $0 + (base[$1] ?? $1.defaultWidth) }
+        guard total > 0 else { return ColumnMetrics() }
+
+        let scale = available > total ? available / total : 1
+        let target = max(total, available)
+
+        var widths: [ColumnID: CGFloat] = [:]
+        var used: CGFloat = 0
+        for column in all.dropLast() {
+            let value = ((base[column] ?? column.defaultWidth) * scale).rounded()
+            widths[column] = value
+            used += value
+        }
+        if let last = all.last {
+            widths[last] = max(last.minWidth, target - used)
+        }
+        return ColumnMetrics(widths: widths, scale: scale)
+    }
+}
+
 @MainActor
 @Observable
 final class ColumnLayout {
@@ -100,6 +130,12 @@ final class ColumnLayout {
 
     var total: CGFloat {
         ColumnID.allCases.reduce(0) { $0 + width($1) }
+    }
+
+    var baseWidths: [ColumnID: CGFloat] {
+        var out: [ColumnID: CGFloat] = [:]
+        for column in ColumnID.allCases { out[column] = width(column) }
+        return out
     }
 
     static var defaultTotal: CGFloat {
