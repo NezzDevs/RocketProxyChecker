@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import AppKit
+import UniformTypeIdentifiers
 
 final class CancelFlag: @unchecked Sendable {
     private let lock = NSLock()
@@ -518,6 +519,42 @@ final class AppModel {
     }
 
     func export(format: ExportFormat, grouping: ExportGrouping, baseName: String) {
+        if grouping == .single {
+            exportSingleFile(format: format, baseName: baseName)
+        } else {
+            exportGrouped(format: format, grouping: grouping, baseName: baseName)
+        }
+    }
+
+    private func exportSingleFile(format: ExportFormat, baseName: String) {
+        let panel = NSSavePanel()
+        panel.canCreateDirectories = true
+        panel.isExtensionHidden = false
+        panel.nameFieldStringValue = "\(Exporter.safeStem(baseName)).\(format.fileExtension)"
+        panel.message = "Save the exported proxies."
+        if let type = UTType(filenameExtension: format.fileExtension) {
+            panel.allowedContentTypes = [type]
+        }
+
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        do {
+            let summary = try Exporter.exportSingle(rows: rows,
+                                                    filter: exportFilter,
+                                                    format: format,
+                                                    to: url)
+            if summary.proxyCount == 0 {
+                notify("No proxies matched the export filter.")
+            } else {
+                notify("Exported \(summary.proxyCount) proxies to \(url.lastPathComponent).")
+                NSWorkspace.shared.activateFileViewerSelecting([url])
+            }
+        } catch {
+            notify("Export failed: \(error.localizedDescription)")
+        }
+    }
+
+    private func exportGrouped(format: ExportFormat, grouping: ExportGrouping, baseName: String) {
         let panel = NSOpenPanel()
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
