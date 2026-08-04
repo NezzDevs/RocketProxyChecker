@@ -250,13 +250,13 @@ private struct StatBar: View {
                         .font(.mono(10, .medium))
                         .foregroundStyle(Theme.textSecondary)
                         .lineLimit(1)
-                        .frame(width: 30, alignment: .trailing)
                         .padding(.horizontal, 5)
                         .padding(.vertical, 2)
                         .background(
                             RoundedRectangle(cornerRadius: 4, style: .continuous)
                                 .fill(Color.white.opacity(0.05))
                         )
+                        .frame(width: 38, alignment: .leading)
                 }
             }
 
