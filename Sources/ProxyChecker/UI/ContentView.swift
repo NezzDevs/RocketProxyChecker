@@ -222,6 +222,11 @@ private struct StatBar: View {
     }
 
     @ViewBuilder
+    private var countColumnWidth: CGFloat {
+        let digits = max(1, String(model.total).count)
+        return CGFloat(digits) * 8.5
+    }
+
     private func chip(count: Int,
                       label: String,
                       color: Color,
@@ -237,6 +242,7 @@ private struct StatBar: View {
                 Text(verbatim: "\(count)")
                     .font(.mono(13, .semibold))
                     .foregroundStyle(Theme.textPrimary)
+                    .frame(width: countColumnWidth, alignment: .trailing)
                 Text(label)
                     .font(.system(size: 12))
                     .foregroundStyle(Theme.textSecondary)
@@ -245,6 +251,7 @@ private struct StatBar: View {
                         .font(.mono(10, .medium))
                         .foregroundStyle(Theme.textSecondary)
                         .lineLimit(1)
+                        .frame(width: 30, alignment: .trailing)
                         .padding(.horizontal, 5)
                         .padding(.vertical, 2)
                         .background(
