@@ -221,7 +221,6 @@ private struct StatBar: View {
         .panel()
     }
 
-    @ViewBuilder
     private var countColumnWidth: CGFloat {
         let digits = max(1, String(model.total).count)
         return CGFloat(digits) * 8.5
@@ -234,7 +233,7 @@ private struct StatBar: View {
                       showPercent: Bool = true) -> some View {
         let isActive = model.statusFilter == filter && filter != nil
 
-        Button {
+        return Button {
             model.statusFilter = (model.statusFilter == filter) ? nil : filter
         } label: {
             HStack(spacing: 7) {
